@@ -34,7 +34,7 @@ import Pusher from 'pusher-js';
 import { Room } from '@hibira-io/lobby';
 
 const pusher = new Pusher(key, {
-  cluster: 'hibira', // required by pusher-js, unused once wsHost is set
+  cluster: 'hkg', // required by pusher-js, unused once wsHost is set
   wsHost: 'ws.hibira.io',
   forceTLS: true,
   enabledTransports: ['ws', 'wss'],
