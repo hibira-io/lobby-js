@@ -1,6 +1,6 @@
 {
   "name": "@hibira-io/lobby",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Room lobby for pusher-js and Laravel Echo on presence channels: seats, host, ready flags, settings, kick, start and room chat, with no game server",
   "keywords": [
     "pusher",
@@ -15,7 +15,7 @@
     "realtime",
     "hibira"
   ],
-  "homepage": "https://github.com/hibira-io/lobby-js#readme",
+  "homepage": "https://hibira.io",
   "bugs": {
     "url": "https://github.com/hibira-io/lobby-js/issues"
   },
