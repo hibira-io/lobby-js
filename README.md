@@ -147,7 +147,7 @@ These are the server's limits for client events, which the lobby uses:
 |---|---|
 | Members per room | presence channel limit (100 on Hibira) |
 | Client events | 10 per second per connection; `sendTyping()` sends at most one every 2 s |
-| Event size | 10 KB |
+| Event size | 4 KB on the Free plan, 10 KB on Hobby and Starter, more on higher plans ([pricing](https://hibira.io/pricing)) |
 | Billing | each client event counts as one message, however many members receive it |
 
 ## Events on the wire
