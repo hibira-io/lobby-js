@@ -7,6 +7,9 @@
 //   - authorizeRoom() signs the presence subscription. It adds joined_at to
 //     user_info, which every client uses to agree on seat order and host,
 //     and refuses the subscription when the room is already full.
+//   - authorizeQueue() signs a matchmaking queue subscription the same way,
+//     with the player's rating and criteria from your own records, so a
+//     player cannot change them in the browser.
 //   - listRooms() reads the occupied rooms and their member counts from the
 //     HTTP API for a room browser.
 
@@ -48,6 +51,37 @@ export async function authorizeRoom(pusher, { socketId, channel, userId, userInf
   return sign.call(pusher, socketId, channel, presence);
 }
 
+/**
+ * Sign a presence subscription to a matchmaking queue (see Queue).
+ *
+ * @param {object} pusher a `pusher` (Node) instance
+ * @param {object} req
+ * @param {string} req.socketId socket_id from the auth request
+ * @param {string} req.channel channel_name from the auth request, e.g. "presence-queue-duo"
+ * @param {string} req.userId your user's id
+ * @param {object} [req.userInfo] public info shown to the match (name, avatar...)
+ * @param {number} [req.rating] skill rating from your database
+ * @param {object} [req.criteria] e.g. { mode: 'duo', region: ['hkg', 'tyo'] }
+ * @param {number} [req.now] joined_at to sign, ms since epoch (default Date.now())
+ * @returns {Promise<object>} the body to return from the auth endpoint
+ */
+export async function authorizeQueue(pusher, { socketId, channel, userId, userInfo = {}, rating, criteria, now }) {
+  if (!channel.startsWith('presence-') || channel.startsWith('presence-large-')) {
+    throw new Error(`authorizeQueue: "${channel}" is not a presence channel`);
+  }
+  if (rating != null && !(typeof rating === 'number' && Number.isFinite(rating))) {
+    throw new Error('authorizeQueue: rating must be a finite number');
+  }
+  if (criteria != null && (typeof criteria !== 'object' || Array.isArray(criteria))) {
+    throw new Error('authorizeQueue: criteria must be an object');
+  }
+  const info = { ...userInfo, joined_at: now ?? Date.now() };
+  if (rating != null) info.rating = rating;
+  if (criteria != null) info.criteria = criteria;
+  const sign = pusher.authorizeChannel ?? pusher.authenticate;
+  return sign.call(pusher, socketId, channel, { user_id: String(userId), user_info: info });
+}
+
 /** Member count of one room (0 when nobody is in it). */
 export async function roomSize(pusher, channel) {
   const body = await getJSON(pusher, `/channels/${encodeURIComponent(channel)}`, { info: 'user_count' });
@@ -67,6 +101,8 @@ export async function listRooms(pusher, { prefix = 'presence-room-' } = {}) {
     .map(([channel, info]) => ({ id: channel.slice(prefix.length), channel, members: info.user_count ?? 0 }))
     .sort((a, b) => (a.channel < b.channel ? -1 : a.channel > b.channel ? 1 : 0));
 }
+
+export { findMatches, allowedRange, criteriaFit } from './match.js';
 
 async function getJSON(pusher, path, params) {
   const res = await pusher.get({ path, params });

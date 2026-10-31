@@ -27,3 +27,16 @@ export function listRooms(
   pusher: PusherLike,
   options?: { prefix?: string },
 ): Promise<{ id: string; channel: string; members: number }[]>;
+
+export interface AuthorizeQueueRequest {
+  socketId: string;
+  channel: string;
+  userId: string | number;
+  userInfo?: Record<string, any>;
+  rating?: number;
+  criteria?: Record<string, any>;
+  now?: number;
+}
+
+export function authorizeQueue(pusher: PusherLike, req: AuthorizeQueueRequest): Promise<{ auth: string; channel_data?: string }>;
+export { findMatches, allowedRange, criteriaFit } from './index.js';
