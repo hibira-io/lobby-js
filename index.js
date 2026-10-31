@@ -459,4 +459,6 @@ function randomID() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
+export { Queue, QUEUE_EVENT } from './queue.js';
+export { findMatches, allowedRange, criteriaFit } from './match.js';
 export default Room;

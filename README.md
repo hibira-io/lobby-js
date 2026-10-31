@@ -5,8 +5,9 @@
 
 Game rooms and lobbies for [pusher-js](https://github.com/pusher/pusher-js)
 and Laravel Echo on [Hibira](https://hibira.io), with no game server: seats,
-a host, ready flags, room settings, kick, start, and room chat with typing
-indicators.
+a host, ready flags, room settings, kick, start, room chat with typing
+indicators, and a matchmaking queue that groups players by rating and
+criteria and moves them into a room together.
 
 A room is a presence channel. The member list comes from the channel, and
 everything else is a client event (`client-lobby-*`), so it works on any
@@ -139,6 +140,101 @@ To check capacity, ask the HTTP API for
 out for real, refuse them in the auth endpoint and call the HTTP API's
 `POST /apps/{id}/users/{user_id}/terminate_connections`.
 
+## Matchmaking queue
+
+`Queue` puts players in a waiting line instead of a room browser. When enough
+players fit together, they leave the queue and land in a new match room (a
+`Room`) at the same time.
+
+```js
+import { Queue } from '@hibira-io/lobby';
+
+const queue = Queue.join(pusher, 'presence-queue-duo', {
+  size: 2,          // players per match
+  ratingRange: 100, // rating difference allowed at first...
+  widenBy: 50,      // ...plus 50 for every 5 s of waiting
+  widenEvery: 5000,
+  maxRange: 400,
+  timeout: 60000,   // give up after a minute
+});
+
+queue.on('update', ({ position, count, waited, range }) => showWaiting(position, count));
+queue.on('match', ({ room, players }) => {
+  // room is a Room on presence-match-<random id>, already joining
+  room.on('ready', () => goToRoomScreen(room));
+});
+queue.on('timeout', () => showNoMatch());
+
+cancelButton.onclick = () => queue.leave();
+```
+
+How it works, with no matchmaking server:
+
+- The queue is a presence channel. Your auth endpoint signs each player's
+  `joined_at`, `rating` and `criteria` into `user_info`, so players cannot
+  change their own rating or jump the line.
+- The player who has waited longest hosts the queue. Only the host runs the
+  matching rules and announces matches with `client-queue-match`; everyone
+  else ignores matches from other members. When the host is matched or
+  leaves, the next player in line takes over.
+- Players are taken longest wait first. Each picks the closest ratings within
+  its range, and the range widens the longer it waits. With
+  `minSize` and `fillAfter`, a player who has waited long enough gets a
+  smaller match instead of waiting for a full one.
+- The match room's name is random, so only the matched players know it.
+
+Every client should use the same matching options; the host's are the ones
+that count. The rules also run anywhere else: `findMatches(tickets, rules)`
+is a pure function, exported from both `@hibira-io/lobby` and
+`@hibira-io/lobby/server`.
+
+| Option | Default | |
+|---|---|---|
+| `size` | 2 | players per match |
+| `minSize` | `size` | smallest match once `fillAfter` has passed |
+| `fillAfter` | Infinity | ms of waiting before a smaller match is allowed |
+| `ratingRange` | Infinity | rating difference allowed at first |
+| `widenBy`, `widenEvery` | 0, 5000 | range grows by `widenBy` every `widenEvery` ms |
+| `maxRange` | Infinity | the range never grows past this |
+| `compatible(a, b)` | none | extra rule; return false to keep two tickets apart |
+| `timeout` | 60000 | ms before `timeout`; Infinity waits forever |
+| `interval` | 1000 | ms between matching rounds on the host |
+| `roomPrefix` | `presence-match-` | match room channel prefix |
+| `autoRoom` | true | join the match room (with `Queue.join`) |
+| `roomOptions` | `{}` | options for the match `Room`; `capacity` defaults to the match size |
+
+**Criteria.** Two players fit when every criteria key they both have agrees:
+equal values, or arrays that share a value. A key only one of them has does
+not matter. `{ mode: 'duo', region: ['hkg', 'tyo'] }` fits
+`{ mode: 'duo', region: 'tyo' }` but not `{ mode: 'solo' }`. For modes that
+must never mix, a separate queue channel per mode is simpler and keeps each
+queue small.
+
+**Server side.** Sign queue subscriptions with `authorizeQueue()`, taking the
+rating from your own records, and match rooms with `authorizeRoom()`:
+
+```js
+import { authorizeQueue, authorizeRoom } from '@hibira-io/lobby/server';
+
+app.post('/rooms/auth', async (req, res) => {
+  const base = { socketId: req.body.socket_id, channel: req.body.channel_name, userId: req.user.id, userInfo: { name: req.user.name } };
+  const auth = base.channel.startsWith('presence-queue-')
+    ? await authorizeQueue(hibira, { ...base, rating: req.user.rating, criteria: { region: req.user.region } })
+    : await authorizeRoom(hibira, base);
+  res.json(auth);
+});
+```
+
+**What it does not do.** The host is a player's browser, so a modified client
+could bias the matches it announces (it cannot change anyone's signed
+rating). That is fine for casual and party games; for ranked play with
+rewards, run `findMatches()` on your own server and send each player their
+room with `trigger()` on a private channel. A matched player who closes the tab
+at the wrong moment leaves the others in a room that is one short: compare
+`room.players` with `match.players` and send everyone back to the queue if
+someone does not show up. One queue channel holds up to 100 waiting players
+(the presence channel limit); split busy queues by mode or region.
+
 ## Limits
 
 These are the server's limits for client events, which the lobby uses:
@@ -165,11 +261,19 @@ or send them from other SDKs (Android, iOS, Unity) too.
 | `client-lobby-chat` | any member | `{id, text, extra?}` |
 | `client-lobby-typing` | any member | `{}` |
 
+On a queue channel:
+
+| Event | Sent by | Data |
+|---|---|---|
+| `client-queue-match` | queue host | `{matches: [{id, players: [user_id]}]}`, the room is `presence-match-<id>` |
+
+Queue members' `user_info` carries `joined_at`, `rating` and `criteria`.
+
 ## Development
 
 ```sh
 npm test         # unit tests
-npm run test:e2e # against a running server, see test/e2e/lobby.e2e.mjs
+npm run test:e2e # against a running server, see test/e2e/
 ```
 
 ## License

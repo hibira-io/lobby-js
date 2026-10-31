@@ -1,7 +1,7 @@
 {
   "name": "@hibira-io/lobby",
-  "version": "0.1.1",
-  "description": "Room lobby for pusher-js and Laravel Echo on presence channels: seats, host, ready flags, settings, kick, start and room chat, with no game server",
+  "version": "0.2.0",
+  "description": "Room lobby for pusher-js and Laravel Echo on presence channels: seats, host, ready flags, settings, kick, start and room chat, plus a matchmaking queue, with no game server",
   "keywords": [
     "pusher",
     "pusher-js",
@@ -9,6 +9,8 @@
     "presence",
     "lobby",
     "matchmaking",
+    "matchmaker",
+    "queue",
     "multiplayer",
     "room",
     "websocket",
@@ -43,6 +45,8 @@
     "index.d.ts",
     "server.js",
     "server.d.ts",
+    "queue.js",
+    "match.js",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
