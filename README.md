@@ -54,15 +54,18 @@ room.on('start', ({ data }) => startGame(data));
 room.on('full', () => alert('This room is full'));
 room.on('kicked', ({ reason }) => leaveScreen(reason));
 
-room.on('ready', () => room.setReady(true)); // actions work once you have joined
-room.send('gl hf');
-input.oninput = () => room.sendTyping();
+// Actions throw "Room: not joined yet" until the room is joined.
+room.on('ready', () => {
+  room.setReady(true);
+  room.send('gl hf');
+  input.oninput = () => room.sendTyping();
 
-if (room.isHost) {
-  room.setSettings({ map: 'desert', rounds: 3 });
-  room.kick('user-7', 'afk');
-  room.start({ seed: 1234 }, { requireAllReady: true });
-}
+  if (room.isHost) {
+    room.setSettings({ map: 'desert', rounds: 3 });
+    room.kick('user-7', 'afk');
+    room.start({ seed: 1234 }, { requireAllReady: true });
+  }
+});
 
 room.players;  // [{ id, info, ready, host, me }] in seat order
 room.host;     // the first player
