@@ -54,7 +54,7 @@ room.on('start', ({ data }) => startGame(data));
 room.on('full', () => alert('This room is full'));
 room.on('kicked', ({ reason }) => leaveScreen(reason));
 
-room.setReady(true);
+room.on('ready', () => room.setReady(true)); // actions work once you have joined
 room.send('gl hf');
 input.oninput = () => room.sendTyping();
 
